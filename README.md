@@ -181,4 +181,4 @@ Communication between the Preact UI (iframe) and the plugin backend (`plugin.ts`
 
 ## License
 
-MIT
+This project is under the MIT License. See the LICENSE file for more details.
