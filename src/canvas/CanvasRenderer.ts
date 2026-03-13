@@ -286,95 +286,102 @@ export class CanvasRenderer {
     doc: EditorDocument,
     panZoom: PanZoomState
   ): void {
-    // Remove previous selection rects from overlay
     const existing = this.overlayLayer.querySelectorAll(".selection-box");
     existing.forEach((el) => el.remove());
 
     if (selectedIds.length === 0) return;
 
-    const accentColor = "var(--accent-primary)";
+    const accent = "var(--accent-primary)";
 
-    // Individual shape bounding boxes
+    // Individual shape outlines (no handles — handles live on the combined BB)
     for (const id of selectedIds) {
       const shape = doc.shapes.find((s) => s.id === id);
       if (!shape) continue;
-
       const bb = shapeBoundingBox(shape);
       if (!bb) continue;
-
       const screenBB = this.toScreenBB(bb, panZoom);
-      const rect = svgEl("rect", {
-        class: "selection-box",
-        x: String(screenBB.x),
-        y: String(screenBB.y),
-        width: String(screenBB.width),
-        height: String(screenBB.height),
-        fill: "none",
-        stroke: accentColor,
-        "stroke-width": "1",
-        "pointer-events": "none",
-      });
-      this.overlayLayer.appendChild(rect);
-
-      // Corner handles
-      const handleSize = 6;
-      const corners: Point[] = [
-        { x: screenBB.x, y: screenBB.y },
-        { x: screenBB.x + screenBB.width, y: screenBB.y },
-        { x: screenBB.x + screenBB.width, y: screenBB.y + screenBB.height },
-        { x: screenBB.x, y: screenBB.y + screenBB.height },
-      ];
-      for (const corner of corners) {
-        this.overlayLayer.appendChild(
-          svgEl("rect", {
-            class: "selection-box",
-            x: String(corner.x - handleSize / 2),
-            y: String(corner.y - handleSize / 2),
-            width: String(handleSize),
-            height: String(handleSize),
-            fill: "var(--background-primary)",
-            stroke: accentColor,
-            "stroke-width": "1",
-            "pointer-events": "none",
-          })
-        );
-      }
+      this.overlayLayer.appendChild(
+        svgEl("rect", {
+          class: "selection-box",
+          x: String(screenBB.x),
+          y: String(screenBB.y),
+          width: String(screenBB.width),
+          height: String(screenBB.height),
+          fill: "none",
+          stroke: accent,
+          "stroke-width": "1",
+          opacity: selectedIds.length > 1 ? "0.5" : "1",
+          "pointer-events": "none",
+        })
+      );
     }
 
-    // Multi-selection combined bounding box
+    // Combined bounding box
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const id of selectedIds) {
+      const shape = doc.shapes.find((s) => s.id === id);
+      if (!shape) continue;
+      const bb = shapeBoundingBox(shape);
+      if (!bb) continue;
+      if (bb.x < minX) minX = bb.x;
+      if (bb.y < minY) minY = bb.y;
+      if (bb.x + bb.width > maxX) maxX = bb.x + bb.width;
+      if (bb.y + bb.height > maxY) maxY = bb.y + bb.height;
+    }
+    if (minX === Infinity) return;
+
+    const combinedBB = { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+    const sBB = this.toScreenBB(combinedBB, panZoom);
+
+    // Outer box — dashed for multi, solid for single
     if (selectedIds.length > 1) {
-      let minX = Infinity,
-        minY = Infinity,
-        maxX = -Infinity,
-        maxY = -Infinity;
-      for (const id of selectedIds) {
-        const shape = doc.shapes.find((s) => s.id === id);
-        if (!shape) continue;
-        const bb = shapeBoundingBox(shape);
-        if (!bb) continue;
-        if (bb.x < minX) minX = bb.x;
-        if (bb.y < minY) minY = bb.y;
-        if (bb.x + bb.width > maxX) maxX = bb.x + bb.width;
-        if (bb.y + bb.height > maxY) maxY = bb.y + bb.height;
-      }
-      if (minX !== Infinity) {
-        const combinedBB = { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-        const screenBB = this.toScreenBB(combinedBB, panZoom);
-        this.overlayLayer.appendChild(
-          svgEl("rect", {
-            class: "selection-box",
-            x: String(screenBB.x),
-            y: String(screenBB.y),
-            width: String(screenBB.width),
-            height: String(screenBB.height),
-            fill: "none",
-            stroke: accentColor,
-            "stroke-width": "1",
-            "stroke-dasharray": "3 3",
-            "pointer-events": "none",
-          })
-        );
-      }
+      this.overlayLayer.appendChild(
+        svgEl("rect", {
+          class: "selection-box",
+          x: String(sBB.x),
+          y: String(sBB.y),
+          width: String(sBB.width),
+          height: String(sBB.height),
+          fill: "none",
+          stroke: accent,
+          "stroke-width": "1",
+          "stroke-dasharray": "4 3",
+          "pointer-events": "none",
+        })
+      );
+    }
+
+    // 8 resize handles on the combined bounding box
+    const HANDLE_SIZE = 7;
+    const hs = HANDLE_SIZE / 2;
+
+    const handlePoints: { id: string; x: number; y: number }[] = [
+      { id: "nw", x: sBB.x,                   y: sBB.y                    },
+      { id: "n",  x: sBB.x + sBB.width / 2,   y: sBB.y                    },
+      { id: "ne", x: sBB.x + sBB.width,        y: sBB.y                    },
+      { id: "e",  x: sBB.x + sBB.width,        y: sBB.y + sBB.height / 2  },
+      { id: "se", x: sBB.x + sBB.width,        y: sBB.y + sBB.height       },
+      { id: "s",  x: sBB.x + sBB.width / 2,   y: sBB.y + sBB.height       },
+      { id: "sw", x: sBB.x,                   y: sBB.y + sBB.height       },
+      { id: "w",  x: sBB.x,                   y: sBB.y + sBB.height / 2  },
+    ];
+
+    for (const hp of handlePoints) {
+      this.overlayLayer.appendChild(
+        svgEl("rect", {
+          class: "selection-box",
+          "data-handle": hp.id,
+          x: String(hp.x - hs),
+          y: String(hp.y - hs),
+          width: String(HANDLE_SIZE),
+          height: String(HANDLE_SIZE),
+          rx: "1",
+          fill: "var(--background-primary)",
+          stroke: accent,
+          "stroke-width": "1.5",
+          "pointer-events": "none",
+        })
+      );
     }
   }
 

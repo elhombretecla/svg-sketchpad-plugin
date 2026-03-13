@@ -17,7 +17,8 @@ export function Canvas() {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const renderer = new CanvasRenderer(containerRef.current);
+    const container = containerRef.current;
+    const renderer = new CanvasRenderer(container);
     rendererRef.current = renderer;
 
     const toolCtrl = new ToolController();
@@ -29,13 +30,15 @@ export function Canvas() {
       state.document, state.panZoom, state.selection, state.rubberBand,
       state.activeTool, state.nodeSelection, state.penState, state.shapePreview
     );
+    container.style.cursor = state.cursor ?? "default";
 
-    // Re-render on state changes
+    // Re-render on state changes and apply cursor
     const unsubscribe = editorStore.subscribe((state) => {
       renderer.render(
         state.document, state.panZoom, state.selection, state.rubberBand,
         state.activeTool, state.nodeSelection, state.penState, state.shapePreview
       );
+      container.style.cursor = state.cursor ?? "default";
     });
 
     return () => {

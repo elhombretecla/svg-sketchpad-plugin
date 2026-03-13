@@ -212,6 +212,104 @@ export function shapeToSvgD(shape: PathShape): string {
   return parts.join(" ");
 }
 
+// --- Shape transforms ---
+
+/**
+ * Translate a shape by (dx, dy) in canvas coordinates.
+ */
+export function moveShape(shape: Shape, dx: number, dy: number): Shape {
+  return {
+    ...shape,
+    transform: {
+      ...shape.transform,
+      x: shape.transform.x + dx,
+      y: shape.transform.y + dy,
+    },
+  };
+}
+
+/**
+ * Scale a shape from one bounding box to another.
+ * The shape is repositioned and resized so it occupies the same relative
+ * position within `toBB` as it did within `fromBB`.
+ */
+export function scaleShape(
+  shape: Shape,
+  fromBB: BoundingBox,
+  toBB: BoundingBox
+): Shape {
+  const bb = shapeBoundingBox(shape);
+  if (!bb) return shape;
+
+  // Relative position/size within fromBB
+  const relX = fromBB.width > 0 ? (bb.x - fromBB.x) / fromBB.width : 0;
+  const relY = fromBB.height > 0 ? (bb.y - fromBB.y) / fromBB.height : 0;
+  const relW = fromBB.width > 0 ? bb.width / fromBB.width : 1;
+  const relH = fromBB.height > 0 ? bb.height / fromBB.height : 1;
+
+  // Target bounding box for this shape
+  const newX = toBB.x + relX * toBB.width;
+  const newY = toBB.y + relY * toBB.height;
+  const newW = Math.max(1, relW * toBB.width);
+  const newH = Math.max(1, relH * toBB.height);
+
+  const scaleX = bb.width > 0 ? newW / bb.width : 1;
+  const scaleY = bb.height > 0 ? newH / bb.height : 1;
+
+  switch (shape.type) {
+    case "rectangle":
+      return {
+        ...shape,
+        transform: { ...shape.transform, x: newX, y: newY },
+        width: newW,
+        height: newH,
+      };
+
+    case "ellipse":
+      return {
+        ...shape,
+        transform: {
+          ...shape.transform,
+          x: newX + newW / 2,
+          y: newY + newH / 2,
+        },
+        rx: newW / 2,
+        ry: newH / 2,
+      };
+
+    case "path": {
+      // Nodes are in local space relative to transform. Scale them in place,
+      // then adjust transform so the resulting BB aligns with newX/newY.
+      const localMinX = bb.x - shape.transform.x;
+      const localMinY = bb.y - shape.transform.y;
+
+      const scaledNodes = shape.nodes.map((node) => ({
+        ...node,
+        position: {
+          x: node.position.x * scaleX,
+          y: node.position.y * scaleY,
+        },
+        handleIn: node.handleIn
+          ? { x: node.handleIn.x * scaleX, y: node.handleIn.y * scaleY }
+          : null,
+        handleOut: node.handleOut
+          ? { x: node.handleOut.x * scaleX, y: node.handleOut.y * scaleY }
+          : null,
+      }));
+
+      return {
+        ...shape,
+        transform: {
+          ...shape.transform,
+          x: newX - localMinX * scaleX,
+          y: newY - localMinY * scaleY,
+        },
+        nodes: scaledNodes,
+      };
+    }
+  }
+}
+
 // --- Hit testing ---
 
 /**

@@ -43,6 +43,7 @@ export interface EditorState {
   nodeSelection: number[];
   penState: PenState | null;
   shapePreview: Shape | null;
+  cursor: string;
 }
 
 export interface EditorActions {
@@ -66,6 +67,7 @@ export interface EditorActions {
   setNodeSelection: (indices: number[]) => void;
   setPenState: (state: PenState | null) => void;
   setShapePreview: (shape: Shape | null) => void;
+  setCursor: (cursor: string) => void;
   zoomIn: () => void;
   zoomOut: () => void;
   zoomTo: (zoom: number) => void;
@@ -95,6 +97,7 @@ export const editorStore = createStore<EditorStore>((set) => ({
   nodeSelection: [],
   penState: null,
   shapePreview: null,
+  cursor: "default",
 
   setDocument: (document) => set({ document }),
   setSelection: (selection) => set({ selection }),
@@ -117,6 +120,7 @@ export const editorStore = createStore<EditorStore>((set) => ({
   setNodeSelection: (nodeSelection) => set({ nodeSelection }),
   setPenState: (penState) => set({ penState }),
   setShapePreview: (shapePreview) => set({ shapePreview }),
+  setCursor: (cursor) => set({ cursor }),
 
   zoomIn: () =>
     set((state) => ({
