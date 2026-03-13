@@ -1,0 +1,6 @@
+{
+  "name": "SVG Sketchpad",
+  "code": "plugin.js",
+  "description": "A lightweight SVG drawing editor for fast path editing of icons and illustrations",
+  "permissions": ["content:read", "content:write"]
+}
